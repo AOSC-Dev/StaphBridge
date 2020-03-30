@@ -102,4 +102,9 @@ def getNameRep(userObj):
         return '@'+userObj['first_name']
 
 def getMsgText(msgObj):
-    return '['+getNameRep(msgObj['from'])[1:]+'] '+msgObj['text'] if 'text' in msgObj else '['+getNameRep(msgObj['from'])[1:]+'] <Multimedia Message>'
+    if 'text' not in msgObj and 'sticker' not in msgObj:
+        print(repr(msgObj))
+    return '['+getNameRep(msgObj['from'])[1:]+'] '+msgObj['text'] if 'text' in msgObj \
+            else '['+getNameRep(msgObj['from'])[1:]+'] <Sticker '+msgObj['sticker']['emoji']+'>' if 'sticker' in msgObj \
+            else '['+getNameRep(msgObj['from'])[1:]+'] <Multimedia Message> '+msgObj['caption'] if 'caption' in msgObj \
+            else '['+getNameRep(msgObj['from'])[1:]+'] <Multimedia Message>'
