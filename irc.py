@@ -30,7 +30,6 @@ def parseMessage(ircmsg):
         return repr(ircmsg)
 
 def sendTG(msg):
-
     ## TG Configuration
     ## ONLY used if you are running it standalone
     ## as an IRC -> TG one-way bridge
@@ -55,6 +54,7 @@ class ircSocket:
         self.sock.connect((server, port))
         self.sock.send(bytes("USER "+ botnick +" "+ botnick +" "+ botnick + " " + botnick + "\n", "UTF-8")) #We are basically filling out a form with this line and saying to set all the fields to the bot nickname.
         self.sock.send(bytes("NICK "+ botnick +"\n", "UTF-8")) # assign the nick to the bot
+        self.quitNow = False
 
     def joinChannel(self,channel):
         if self.channel is not None:
@@ -64,13 +64,15 @@ class ircSocket:
         while ircmsg.find("End of /NAMES list.") == -1:  
             ircmsg = self.sock.recv(2048).decode("UTF-8")
             ircmsg = ircmsg.strip('\n\r')
+#            print(ircmsg)
         self.channel = channel
         #DEBUG:
         print("["+str(int(time.time()))+"] Bot "+self.nick+" successfully joined IRC channel "+channel)
         #print(ircmsg)
 
     def reconnect(self):
-        if self.quit:
+        print("RECONNECT requested")
+        if self.quitNow:
             time.sleep(1)
             return 1
         self.sock = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2).wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
@@ -100,11 +102,13 @@ class ircSocket:
             return 0
 
     def sendMsg(self,msg):
-        self.sock.send(bytes("PRIVMSG "+self.channel+" :"+msg+"\n","UTF-8"))
+        for item in msg.split('\n'):
+            if item:
+                self.sock.send(bytes("PRIVMSG "+self.channel+" :"+item+"\n","UTF-8"))
 
     def quit(self):
         self.sock.send(bytes("QUIT","UTF-8"))
-        self.quit = True
+        self.quitNow = True
 
 def main():
     server = "chat.freenode.net" # Server
