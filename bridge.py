@@ -1,7 +1,6 @@
 #! /usr/bin/env python3
 import irc
 #import multiprocessing as mp
-## Use Threading instead... a little bit dirty though
 import threading as mp
 mp.Process = mp.Thread
 import queue
@@ -11,15 +10,11 @@ import tg
 import sys
 import time
 
-__doc__ = sys.argv[0]+''' - TG-IRC Bot for interoperation.
-
-Synopsis:
-    '''+sys.argv[0]+''' TG-Token TG-GroupID IRC-Server IRC-Channel IRC-Nickname'''
-
 def ircSend(ircBot,stdin,killSignal):
     while killSignal.empty():
         while not stdin.empty():
             ircBot.sendMsg(stdin.get())
+        time.sleep(0.2)
 
 def ircRecv(ircBot,stdout,killSignal):
     while killSignal.empty():
@@ -40,21 +35,21 @@ def tgRecv(tgBot,groupID,stdout,killSignal):
     lastID = None
     while killSignal.empty():
         for item in tmp:
-            if item['message']['chat']['id'] == groupID:
-                stdout.put(tg.getMsgText(item['message']))
+            if 'message' in item:
+                if item['message']['chat']['id'] == groupID:
+                    stdout.put(tg.getMsgText(item['message']))
+            else:
+                print(repr(item))
             lastID = item['update_id']+1
         tmp = tgBot.query('getUpdates',{'offset':lastID,'timeout':20})
         time.sleep(1) # TG AntiFlood
 
-def main(args):
-    if len(args) != 5:
-        print(__doc__)
-        sys.exit()
-    apikey = args[0]
-    groupID = args[1]
-    ircSvr = args[2]
-    ircChan = args[3]
-    ircName = args[4]
+def main():
+    apikey = '123456789:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' # Your TG API Key
+    groupID = -100123456789 # Your TG Group
+    ircChan = '#ircchannel'
+    ircName = 'BridgeBot'
+    ircSvr = 'irc.freenode.net'
 
     tgAPI = tg.tgapi(apikey)
     # Initialize TG API complete
@@ -85,14 +80,11 @@ def main(args):
     except KeyboardInterrupt:
         killSignal.put(None)
         ircAPI.quit()
-        print('IRC disconnected')
         ircIn.join()
         ircOut.join()
-        print('IRC thread finished')
         tgIn.join()
         tgOut.join()
-        print('TG thread finished')
         sys.exit()
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    main()

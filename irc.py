@@ -104,7 +104,13 @@ class ircSocket:
     def sendMsg(self,msg):
         for item in msg.split('\n'):
             if item:
-                self.sock.send(bytes("PRIVMSG "+self.channel+" :"+item+"\n","UTF-8"))
+                while len(item) > 128:
+                    self.sock.send(bytes("PRIVMSG "+self.channel+" :"+item[:128]+"\n","UTF-8"))
+                    time.sleep(0.1)
+                    item = item[128:]
+                if item.strip():
+                    self.sock.send(bytes("PRIVMSG "+self.channel+" :"+item+"\n","UTF-8"))
+                    time.sleep(0.1)
 
     def quit(self):
         self.sock.send(bytes("QUIT","UTF-8"))

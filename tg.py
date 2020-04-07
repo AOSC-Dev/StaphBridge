@@ -101,10 +101,25 @@ def getNameRep(userObj):
     else:
         return '@'+userObj['first_name']
 
-def getMsgPhoto(msgObj):
+def getMsgFile(msgObj):
+    fileType = "MultimediaMessage"
     if 'photo' in msgObj:
-        photoID = msgObj['photo'][-1]['file_id']
-    result = '<MultimediaMessage photoID="'+photoID+'">'
+        fileID = msgObj['photo'][-1]['file_id']
+        fileType = "Photo"
+    elif 'sticker' in msgObj:
+        fileID = msgObj['sticker']['file_id']
+        fileType = "Sticker"
+        if 'emoji' in msgObj['sticker']:
+            fileType += ' emoji="'+msgObj['sticker']['emoji']+'"'
+    elif 'animation' in msgObj:
+        fileID = msgObj['animation']['file_id']
+        fileType = "Animation"
+    elif 'voice' in msgObj:
+        fileID = msgObj['voice']['file_id']
+        fileType = 'Voice'
+    ## Customize code for File URL
+    result = '<'+fileType+' file_id="'+fileID+'">'
+    ## Customize end
     if 'caption' in msgObj:
         result  += ' '+msgObj['caption']
     return result
@@ -113,7 +128,7 @@ def getMsgText(msgObj):
     if 'text' not in msgObj:# and 'sticker' not in msgObj:
         print(repr(msgObj))
     return '['+getNameRep(msgObj['from'])[1:]+'] '+(msgObj['text'] if 'text' in msgObj \
-            else ('<Sticker emoji="'+msgObj['sticker']['emoji']+'">') if 'sticker' in msgObj \
-            else getMsgPhoto(msgObj) if 'photo' in msgObj \
+            else getMsgFile(msgObj) if (('sticker' in msgObj) or ('photo' in msgObj) or ('animation' in msgObj) or ('voice') in msgObj) \
+#            else ('<Sticker emoji="'+msgObj['sticker']['emoji']+'">') if 'sticker' in msgObj \
             else ('<MultimediaMessage> '+msgObj['caption']) if 'caption' in msgObj \
             else '<MultimediaMessage>')
