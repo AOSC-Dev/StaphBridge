@@ -118,7 +118,7 @@ def getMsgFile(msgObj):
         fileID = msgObj['voice']['file_id']
         fileType = 'Voice'
     ## Customize code for File URL
-    result = '<'+fileType+' file_id="'+fileID+'">'
+    result = '<'+fileType+' file_id="'+str(fileID)+'">'
     ## Customize end
     if 'caption' in msgObj:
         result  += ' '+msgObj['caption']
@@ -127,8 +127,11 @@ def getMsgFile(msgObj):
 def getMsgText(msgObj):
     if 'text' not in msgObj:# and 'sticker' not in msgObj:
         print(repr(msgObj))
-    return '['+getNameRep(msgObj['from'])[1:]+'] '+(msgObj['text'] if 'text' in msgObj \
+    return msgObj['text'] if 'text' in msgObj \
             else getMsgFile(msgObj) if (('sticker' in msgObj) or ('photo' in msgObj) or ('animation' in msgObj) or ('voice') in msgObj) \
-#            else ('<Sticker emoji="'+msgObj['sticker']['emoji']+'">') if 'sticker' in msgObj \
+            else ('<Dice value="'+str(msgObj['dice']['value'])+'">') if 'dice' in msgObj \
             else ('<MultimediaMessage> '+msgObj['caption']) if 'caption' in msgObj \
-            else '<MultimediaMessage>')
+            else '<MultimediaMessage>'
+
+def getMsg(msgObj):
+    return(('tg',msgObj['chat']['id']),{'name':getNameRep(msgObj['from'])[1:],'text':getMsgText(msgObj)})

@@ -10,10 +10,36 @@ import tg
 import sys
 import time
 
-def ircSend(ircBot,stdin,killSignal):
+def transMap(mapping,progList):
+    result = {}
+    for item in progList:
+        result[item] = []
+    for item in mapping:
+        for prog in progList:
+            result[prog].append(item[prog] if prog in item else None)
+    return result
+
+def escapeTG(msg):
+    return msg.replace('&','&amp;').replace('>','&gt;').replace('<','&lt;')
+
+def msgToTG(msg,src):
+    prefix = {'irc':'&lt;I&gt; '}
+    if 'config' in msg and 'irc_action' in msg['config']:
+        return prefix[src] + '* <b>'+escapeTG(msg['name'])+'</b> '+escapeTG(msg['text'])
+    else:
+        return prefix[src] + '[<b>'+escapeTG(msg['name'])+'</b>] '+escapeTG(msg['text'])
+
+def msgToIRC(msg,src):
+    prefix = {'tg':'<T> '}
+    return prefix[src] + '['+msg['name']+'] '+msg['text']
+
+def ircSend(ircBot,mapping,stdin,killSignal):
     while killSignal.empty():
         while not stdin.empty():
-            ircBot.sendMsg(stdin.get())
+            tmp = stdin.get()
+            if tmp[0][0] != 'irc' and tmp[0][1] in mapping[tmp[0][0]] and mapping['irc'][mapping[tmp[0][0]].index(tmp[0][1])] is not None:
+                chan = mapping['irc'][mapping[tmp[0][0]].index(tmp[0][1])]
+                ircBot.sendMessage(chan,msgToIRC(tmp[1],tmp[0][0]))
         time.sleep(0.2)
 
 def ircRecv(ircBot,stdout,killSignal):
@@ -21,23 +47,26 @@ def ircRecv(ircBot,stdout,killSignal):
         if ircBot.handleIncomingMsg(stdout.put):
             ircBot.reconnect()
 
-def tgSend(tgBot,groupID,stdin,killSignal):
+def tgSend(tgBot,mapping,stdin,killSignal):
     while killSignal.empty():
-        buf = ''
+        buf = {}
         while not stdin.empty():
-            buf += stdin.get()+'\n'
-        if buf:
-            tgBot.sendMessage(groupID,buf,{'parse_mode':'HTML'})
+            tmp = stdin.get()
+            if tmp[0][0] != 'tg' and tmp[0][1] in mapping[tmp[0][0]] and mapping['tg'][mapping[tmp[0][0]].index(tmp[0][1])] is not None:
+                if mapping['tg'][mapping[tmp[0][0]].index(tmp[0][1])] not in buf:
+                    buf[mapping['tg'][mapping[tmp[0][0]].index(tmp[0][1])]] = ''
+                buf[mapping['tg'][mapping[tmp[0][0]].index(tmp[0][1])]] += msgToTG(tmp[1],tmp[0][0])+'\n'
+        for item in buf:
+            tgBot.sendMessage(item,buf[item],{'parse_mode':'HTML'})
         time.sleep(3) # TG AntiFlood
 
-def tgRecv(tgBot,groupID,stdout,killSignal):
+def tgRecv(tgBot,stdout,killSignal):
     tmp = tgBot.query('getUpdates')
     lastID = None
     while killSignal.empty():
         for item in tmp:
             if 'message' in item:
-                if item['message']['chat']['id'] == groupID:
-                    stdout.put(tg.getMsgText(item['message']))
+                stdout.put(tg.getMsg(item['message']))
             else:
                 print(repr(item))
             lastID = item['update_id']+1
@@ -45,45 +74,52 @@ def tgRecv(tgBot,groupID,stdout,killSignal):
         time.sleep(1) # TG AntiFlood
 
 def main():
-    apikey = '123456789:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' # Your TG API Key
-    groupID = -100123456789 # Your TG Group
-    ircChan = '#ircchannel'
+    ### Customize this before running
+    apikey = '123456789:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' # Your TG API Key
     ircName = 'BridgeBot'
     ircSvr = 'irc.freenode.net'
 
+    programs = ['tg','irc']
+    mapping = [{'tg':-1001000000000,'irc':'##offtopic'},{'tg':-1001234567890,'irc':'##bottest'}]
+    ### Customize ends here
+
+    mapT = transMap(mapping,programs)
     tgAPI = tg.tgapi(apikey)
     # Initialize TG API complete
     ircAPI = irc.ircSocket(ircSvr,ircName)
-    ircAPI.joinChannel(ircChan)
+    for ircChan in mapT['irc']:
+        ircAPI.joinChannel(ircChan)
     # Initialize IRC API complete
-    tgQueue = (mp.Queue(),mp.Queue())
-    ircQueue = (mp.Queue(),mp.Queue())
+    inQueue = []
+    outQueue = []
+    for item in programs:
+        inQueue.append(mp.Queue())
+        outQueue.append(mp.Queue())
     killSignal = mp.Queue()
-    ircIn = mp.Process(target=ircRecv,args=(ircAPI,ircQueue[0],killSignal))
-    ircIn.start()
-    ircOut = mp.Process(target=ircSend,args=(ircAPI,ircQueue[1],killSignal))
-    ircOut.start()
-    tgIn = mp.Process(target=tgRecv,args=(tgAPI,groupID,tgQueue[0],killSignal))
-    tgIn.start()
-    tgOut = mp.Process(target=tgSend,args=(tgAPI,groupID,tgQueue[1],killSignal))
-    tgOut.start()
+    ircIn = mp.Process(target=ircRecv,args=(ircAPI,inQueue[programs.index('irc')],killSignal))
+    ircOut = mp.Process(target=ircSend,args=(ircAPI,mapT,outQueue[programs.index('irc')],killSignal))
+    tgIn = mp.Process(target=tgRecv,args=(tgAPI,inQueue[programs.index('tg')],killSignal))
+    tgOut = mp.Process(target=tgSend,args=(tgAPI,mapT,outQueue[programs.index('tg')],killSignal))
     # Initialize IO Thread complete
     try:
+        ircIn.start()
+        ircOut.start()
+        tgIn.start()
+        tgOut.start()
         while True:
-            while not ircQueue[0].empty():
-                tmp = ircQueue[0].get()
-                tgQueue[1].put(tmp)
-            while not tgQueue[0].empty():
-                tmp = tgQueue[0].get()
-                ircQueue[1].put(tmp)
-            time.sleep(0.2) # take a break from flood
+            for progIn in inQueue:
+                while not progIn.empty():
+                    tmp = progIn.get()
+                    for progOut in outQueue:
+                        progOut.put(tmp)
+            time.sleep(0.4) # take a break from flood
     except KeyboardInterrupt:
         killSignal.put(None)
-        ircAPI.quit()
         ircIn.join()
         ircOut.join()
         tgIn.join()
         tgOut.join()
+        ircAPI.quit()
         sys.exit()
 
 if __name__ == '__main__':
