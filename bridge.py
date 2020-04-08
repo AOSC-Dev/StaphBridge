@@ -35,14 +35,15 @@ def msgToIRC(msg,src):
 
 def msgToLog(msg,src):
     prefix = {'tg':'<TG>','irc':'<IRC>'}
-    return str(int(time.time()) +'\t'+ prefix[src] + '\t[' + msg['name'] + '] '+msg['text']+'\n'
+    return str(int(time.time())) +'\t'+ prefix[src] + '\t[' + msg['name'] + '] '+msg['text']+'\n'
 
 def logSend(mapping,stdin,killSignal):
     while killSignal.empty():
         while not stdin.empty():
             tmp = stdin.get()
             if tmp[0][0] != 'log' and tmp[0][1] in mapping[tmp[0][0]] and mapping['log'][mapping[tmp[0][0]].index(tmp[0][1])] is not None:
-                mapping['log'][mapping[tmp[0][0]].index(tmp[0][1])].write(msgToLog(tmp[0][0],msgToLog(tmp[1])))
+                mapping['log'][mapping[tmp[0][0]].index(tmp[0][1])].write(msgToLog(tmp[1],tmp[0][0]))
+                mapping['log'][mapping[tmp[0][0]].index(tmp[0][1])].flush()
         time.sleep(1)
 
 def logRecv(stdout,killSignal):
@@ -96,7 +97,7 @@ def main():
     ircSvr = 'irc.freenode.net'
 
     programs = ['tg','irc','log']
-    mapping = [{'tg':-1001000000000,'irc':'##offtopic','log':open('offtopic.log')},{'tg':-1001234567890,'irc':'##bottest'}]
+    mapping = [{'tg':-1001000000000,'irc':'##offtopic','log':open('offtopic.log','a')},{'tg':-1001234567890,'irc':'##bottest'},{'irc':'##logtest','log':open('logchannel.log','a')}]
     ### Customize ends here
 
     mapT = transMap(mapping,programs)

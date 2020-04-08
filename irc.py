@@ -81,7 +81,7 @@ class ircSocket:
         ircmsg = ircmsg.strip('\n\r')
         if ircmsg[:4] == "PING":
             self.sock.send(bytes("PONG :"+self.nick, "UTF-8"))
-            print("I have just got a ping... "+ircmsg)
+            #print("I have just got a ping... "+ircmsg)
             return 0
         elif ircmsg == '':
             print("I might have been disconnected... Please restart me.")
