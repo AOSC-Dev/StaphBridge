@@ -33,6 +33,22 @@ def msgToIRC(msg,src):
     prefix = {'tg':'<T> '}
     return prefix[src] + '['+msg['name']+'] '+msg['text']
 
+def msgToLog(msg,src):
+    prefix = {'tg':'<TG>','irc':'<IRC>'}
+    return str(int(time.time()) +'\t'+ prefix[src] + '\t[' + msg['name'] + '] '+msg['text']+'\n'
+
+def logSend(mapping,stdin,killSignal):
+    while killSignal.empty():
+        while not stdin.empty():
+            tmp = stdin.get()
+            if tmp[0][0] != 'log' and tmp[0][1] in mapping[tmp[0][0]] and mapping['log'][mapping[tmp[0][0]].index(tmp[0][1])] is not None:
+                mapping['log'][mapping[tmp[0][0]].index(tmp[0][1])].write(msgToLog(tmp[0][0],msgToLog(tmp[1])))
+        time.sleep(1)
+
+def logRecv(stdout,killSignal):
+    while killSignal.empty():
+        time.sleep(10)
+
 def ircSend(ircBot,mapping,stdin,killSignal):
     while killSignal.empty():
         while not stdin.empty():
@@ -79,8 +95,8 @@ def main():
     ircName = 'BridgeBot'
     ircSvr = 'irc.freenode.net'
 
-    programs = ['tg','irc']
-    mapping = [{'tg':-1001000000000,'irc':'##offtopic'},{'tg':-1001234567890,'irc':'##bottest'}]
+    programs = ['tg','irc','log']
+    mapping = [{'tg':-1001000000000,'irc':'##offtopic','log':open('offtopic.log')},{'tg':-1001234567890,'irc':'##bottest'}]
     ### Customize ends here
 
     mapT = transMap(mapping,programs)
@@ -100,12 +116,16 @@ def main():
     ircOut = mp.Process(target=ircSend,args=(ircAPI,mapT,outQueue[programs.index('irc')],killSignal))
     tgIn = mp.Process(target=tgRecv,args=(tgAPI,inQueue[programs.index('tg')],killSignal))
     tgOut = mp.Process(target=tgSend,args=(tgAPI,mapT,outQueue[programs.index('tg')],killSignal))
+    logIn = mp.Process(target=logRecv,args=(inQueue[programs.index('log')],killSignal))
+    logOut = mp.Process(target=logSend,args=(mapT,outQueue[programs.index('log')],killSignal))
     # Initialize IO Thread complete
     try:
         ircIn.start()
         ircOut.start()
         tgIn.start()
         tgOut.start()
+        logIn.start()
+        logOut.start()
         while True:
             for progIn in inQueue:
                 while not progIn.empty():
@@ -119,6 +139,8 @@ def main():
         ircOut.join()
         tgIn.join()
         tgOut.join()
+        logIn.join()
+        logOut.join()
         ircAPI.quit()
         sys.exit()
 
