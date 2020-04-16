@@ -53,11 +53,22 @@ class ircSocket:
         while ircmsg.find("End of /NAMES list.") == -1:  
             ircmsg = self.sock.recv(2048).decode("UTF-8")
             ircmsg = ircmsg.strip('\n\r')
-#            print(ircmsg)
+            #print(ircmsg)
         self.channel.append(channel)
         #DEBUG:
         print("["+str(int(time.time()))+"] Bot "+self.nick+" successfully joined IRC channel "+channel)
         #print(ircmsg)
+
+    def identifyNick(self,password):
+        ircmsg= ''
+        while ircmsg[:9] != ':NickServ':
+            ircmsg = self.sock.recv(2048).decode("UTF-8").strip('\n\r')
+        print(ircmsg)
+        ircmsg = ''
+        self.sock.send(bytes('PRIVMSG NickServ :identify '+password+'\r\n','UTF-8'))
+        while ircmsg[:9] != ':NickServ':
+            ircmsg = self.sock.recv(2048).decode("UTF-8").strip('\n\r')
+        print(ircmsg)
 
     def reconnect(self):
         print("RECONNECT requested")
@@ -66,8 +77,8 @@ class ircSocket:
             return 1
         self.sock = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2).wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
         self.sock.connect((self.server, self.port))
-        self.sock.send(bytes("USER "+ self.nick +" "+ self.nick +" "+ self.nick + " " + self.nick + "\n", "UTF-8")) #We are basically filling out a form with this line and saying to set all the fields to the bot nickname.
-        self.sock.send(bytes("NICK "+ self.nick +"\n", "UTF-8")) # assign the nick to the bot
+        self.sock.send(bytes("USER "+ self.nick +" "+ self.nick +" "+ self.nick + " " + self.nick + "\r\n", "UTF-8")) #We are basically filling out a form with this line and saying to set all the fields to the bot nickname.
+        self.sock.send(bytes("NICK "+ self.nick +"\r\n", "UTF-8")) # assign the nick to the bot
         channel = self.channel
         self.channel = []
         for c in channel:
@@ -80,7 +91,7 @@ class ircSocket:
         ircmsg = self.sock.recv(2048).decode("UTF-8")
         ircmsg = ircmsg.strip('\n\r')
         if ircmsg[:4] == "PING":
-            self.sock.send(bytes("PONG :"+self.nick, "UTF-8"))
+            self.sock.send(bytes("PONG :"+self.nick+"\r\n", "UTF-8"))
             #print("I have just got a ping... "+ircmsg)
             return 0
         elif ircmsg == '':
@@ -97,11 +108,11 @@ class ircSocket:
         for item in msg.split('\n'):
             if item:
                 while len(item) > 128:
-                    self.sock.send(bytes("PRIVMSG "+chan+" :"+item[:128]+"\n","UTF-8"))
+                    self.sock.send(bytes("PRIVMSG "+chan+" :"+item[:128]+"\r\n","UTF-8"))
                     time.sleep(0.1)
                     item = item[128:]
                 if item.strip():
-                    self.sock.send(bytes("PRIVMSG "+chan+" :"+item+"\n","UTF-8"))
+                    self.sock.send(bytes("PRIVMSG "+chan+" :"+item+"\r\n","UTF-8"))
                     time.sleep(0.1)
 
     def quit(self):

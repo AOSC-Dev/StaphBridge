@@ -103,22 +103,30 @@ def getNameRep(userObj):
 
 def getMsgFile(msgObj):
     fileType = "MultimediaMessage"
+    suffix = ''
     if 'photo' in msgObj:
         fileID = msgObj['photo'][-1]['file_id']
         fileType = "Photo"
+        suffix='.png'
     elif 'sticker' in msgObj:
         fileID = msgObj['sticker']['file_id']
         fileType = "Sticker"
+        suffix='.webp'
         if 'emoji' in msgObj['sticker']:
             fileType += ' emoji="'+msgObj['sticker']['emoji']+'"'
     elif 'animation' in msgObj:
         fileID = msgObj['animation']['file_id']
         fileType = "Animation"
+        suffix='.mp4'
     elif 'voice' in msgObj:
         fileID = msgObj['voice']['file_id']
         fileType = 'Voice'
     ## Customize code for File URL
     result = '<'+fileType+' file_id="'+str(fileID)+'">'
+    lurl = "https://s.aureus.ga/cgi-bin/tgBotFile.cgi?src=StaphAT&file="+fileID
+    surl = ur.urlopen("http://localhost/s/create/"+lurl).read().decode('latin1').strip()
+    result = '<'+fileType+' url="https://aureus.ga/s/'+surl+suffix+'">'
+#    result = '<'+fileType+' url="'+lurl+'">'
     ## Customize end
     if 'caption' in msgObj:
         result  += ' '+msgObj['caption']
